@@ -15,7 +15,7 @@ namespace CefSharp
 {
     namespace Internals
     {
-        public ref class CefResponseWrapper : public IResponse, public CefWrapper
+        private ref class CefResponseWrapper : public IResponse, public CefWrapper
         {
             MCefRefPtr<CefResponse> _response;
         internal:
@@ -38,6 +38,32 @@ namespace CefSharp
             }
 
         public:
+            virtual property bool IsReadOnly
+            {
+                bool get()
+                {
+                    ThrowIfDisposed();
+
+                    return _response->IsReadOnly();
+                }
+            }
+
+            virtual property CefErrorCode ErrorCode
+            {
+                CefErrorCode get()
+                {
+                    ThrowIfDisposed();
+
+                    return (CefErrorCode)_response->GetError();
+                }
+                void set(CefErrorCode val)
+                {
+                    ThrowIfDisposed();
+
+                    _response->SetError((cef_errorcode_t)val);
+                }
+            }
+
             virtual property int StatusCode
             {
                 int get()

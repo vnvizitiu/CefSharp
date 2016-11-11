@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CefSharp.Example</RootNamespace>
     <AssemblyName>CefSharp.Example</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -61,6 +61,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -71,12 +72,13 @@
     <Compile Include="AsyncBoundObject.cs" />
     <Compile Include="BoundObject.cs" />
     <Compile Include="CallbackResponseStruct.cs" />
-    <Compile Include="DragHandler.cs" />
     <Compile Include="Filters\AppendResponseFilter.cs" />
     <Compile Include="Filters\FindReplaceResponseFilter.cs" />
     <Compile Include="FlashResourceHandler.cs" />
     <Compile Include="FlashResourceHandlerFactory.cs" />
     <Compile Include="Filters\PassThruResponseFilter.cs" />
+    <Compile Include="Handlers\BrowserProcessHandler.cs" />
+    <Compile Include="InMemorySchemeAndResourceHandlerFactory.cs" />
     <Compile Include="ScriptedMethodsBoundObject.cs" />
     <Compile Include="ExceptionTestBoundObject.cs" />
     <Compile Include="JsDialogHandler.cs" />
@@ -85,6 +87,8 @@
     <Compile Include="Proxy\ProxyConfig.cs" />
     <Compile Include="RenderProcessMessageHandler.cs" />
     <Compile Include="ScriptedMethods.cs" />
+    <Compile Include="SimpleClass.cs" />
+    <Compile Include="SimpleSubClass.cs" />
     <Compile Include="SubBoundObject.cs" />
     <Compile Include="TempFileDialogHandler.cs" />
     <Compile Include="CefExample.cs" />
@@ -125,6 +129,7 @@
     <Content Include="Resources\home.html" />
     <Content Include="Resources\FramedWebGLTest.html" />
     <Content Include="Resources\PopupTest.html" />
+    <Content Include="Resources\DraggableRegionTest.html" />
     <Content Include="Resources\ResponseFilterTest.html" />
     <Content Include="Resources\SchemeTest.html" />
     <Content Include="Resources\ScriptedMethodsTest.html" />

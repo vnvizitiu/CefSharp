@@ -11,17 +11,23 @@ namespace CefSharp
     /// </summary>
     public class FrameLoadStartEventArgs : EventArgs
     {
-        public FrameLoadStartEventArgs(IBrowser browser, IFrame frame)
+        /// <summary>
+        /// Creates a new FrameLoadStart event args
+        /// </summary>
+        /// <param name="browser">browser</param>
+        /// <param name="frame">frame</param>
+        public FrameLoadStartEventArgs(IBrowser browser, IFrame frame, TransitionType transitionType)
         {
             Browser = browser;
             Frame = frame;
             Url = frame.Url;
+            TransitionType = transitionType;
         }
 
         /// <summary>
         /// The browser object
         /// </summary>
-        public IBrowser Browser { get; private set;}
+        public IBrowser Browser { get; private set; }
 
         /// <summary>
         /// The frame that just started loading.
@@ -32,5 +38,10 @@ namespace CefSharp
         /// The URL that was loaded.
         /// </summary>
         public string Url { get; private set; }
+
+        /// <summary>
+        /// TransitionType provides information about the source of the navigation.
+        /// </summary>
+        public TransitionType TransitionType { get; private set; }
     }
 }

@@ -6,6 +6,10 @@ using System;
 
 namespace CefSharp
 {
+    /// <summary>
+    /// Implement this interface to handle events related to browser requests.
+    /// The methods of this class will be called on the thread indicated. 
+    /// </summary>
     public interface IRequestHandler
     {
         /// <summary>
@@ -131,8 +135,9 @@ namespace CefSharp
         /// <param name="browser">the browser object</param>
         /// <param name="frame">The frame that is being redirected.</param>
         /// <param name="request">the request object - cannot be modified in this callback</param>
+        /// <param name="response">the response object</param>
         /// <param name="newUrl">the new URL and can be changed if desired</param>
-        void OnResourceRedirect(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, ref string newUrl);
+        void OnResourceRedirect(IWebBrowser browserControl, IBrowser browser, IFrame frame, IRequest request, IResponse response, ref string newUrl);
 
         /// <summary>
         /// Called on the UI thread to handle requests for URLs with an unknown protocol component. 
@@ -145,14 +150,13 @@ namespace CefSharp
         bool OnProtocolExecution(IWebBrowser browserControl, IBrowser browser, string url);
 
         /// <summary>
-        /// Called on the browser process UI thread when the render view associated
+        /// Called on the CEF UI thread when the render view associated
         /// with browser is ready to receive/handle IPC messages in the render
         /// process.
         /// </summary>
         /// <param name="browserControl">The ChromiumWebBrowser control</param>
         /// <param name="browser">the browser object</param>
         void OnRenderViewReady(IWebBrowser browserControl, IBrowser browser);
-
         
         /// <summary>
         /// Called on the CEF IO thread when a resource response is received.

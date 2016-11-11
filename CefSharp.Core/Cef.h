@@ -7,15 +7,16 @@
 #include "Stdafx.h"
 
 #include <msclr/lock.h>
+#include <msclr/marshal.h>
 #include <include/cef_version.h>
-#include <include/cef_runnable.h>
 #include <include/cef_origin_whitelist.h>
 #include <include/cef_web_plugin.h>
 
 #include "Internals/CefSharpApp.h"
-#include "Internals/CookieManager.h"
+#include "CookieManager.h"
 #include "Internals/PluginVisitor.h"
 #include "CefSettings.h"
+#include "RequestContext.h"
 #include "SchemeHandlerFactoryWrapper.h"
 #include "Internals/CefTaskScheduler.h"
 #include "Internals/CefGetGeolocationCallbackWrapper.h"
@@ -23,6 +24,7 @@
 using namespace System::Collections::Generic; 
 using namespace System::Linq;
 using namespace System::Reflection;
+using namespace msclr::interop;
 
 namespace CefSharp
 {
@@ -40,19 +42,7 @@ namespace CefSharp
             _disposables = gcnew HashSet<IDisposable^>();
         }
 
-        static void ParentProcessExitHandler(Object^ sender, EventArgs^ e)
-        {
-            if (Cef::IsInitialized)
-            {
-                Cef::Shutdown();
-            }
-        }
-
     public:
-        /// <summary>
-        /// Called on the browser process UI thread immediately after the CEF context has been initialized. 
-        /// </summary>
-        static property Action^ OnContextInitialized;
 
         static property TaskFactory^ UIThreadTaskFactory;
         static property TaskFactory^ IOThreadTaskFactory;
@@ -135,8 +125,11 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Initializes CefSharp with the default settings.
-        /// This function should be called on the main application thread to initialize the CEF browser process.
+        /// Initializes CefSharp with the default settings. 
+        /// This function can only be called once, subsiquent calls will result in an Exception.
+        /// It's important to note that Initialize and Shutdown <strong>MUST</strong> be called on your main
+        /// applicaiton thread (Typically the UI thead). If you call them on different
+        /// threads, your application will hang. See the documentation for Cef.Shutdown() for more details.
         /// </summary>
         /// <return>true if successful; otherwise, false.</return>
         static bool Initialize()
@@ -147,25 +140,27 @@ namespace CefSharp
 
         /// <summary>
         /// Initializes CefSharp with user-provided settings.
-        /// This function should be called on the main application thread to initialize the CEF browser process.
+        /// It's important to note that Initialize and Shutdown <strong>MUST</strong> be called on your main
+        /// applicaiton thread (Typically the UI thead). If you call them on different
+        /// threads, your application will hang. See the documentation for Cef.Shutdown() for more details.
         /// </summary>
         /// <param name="cefSettings">CefSharp configuration settings.</param>
         /// <return>true if successful; otherwise, false.</return>
         static bool Initialize(CefSettings^ cefSettings)
         {
-            return Initialize(cefSettings, true, false);
+            return Initialize(cefSettings, false, nullptr);
         }
 
         /// <summary>
         /// Initializes CefSharp with user-provided settings.
-        /// This function should be called on the main application thread to initialize the CEF browser process.
+        /// It's important to note that Initialize/Shutdown <strong>MUST</strong> be called on your main
+        /// applicaiton thread (Typically the UI thead). If you call them on different
+        /// threads, your application will hang. See the documentation for Cef.Shutdown() for more details.
         /// </summary>
         /// <param name="cefSettings">CefSharp configuration settings.</param>
-        /// <param name="shutdownOnProcessExit">When the Current AppDomain (relative to the thread called on)
-        /// Exits(ProcessExit event) then Shudown will be called.</param>
         /// <param name="performDependencyCheck">Check that all relevant dependencies avaliable, throws exception if any are missing</param>
         /// <return>true if successful; otherwise, false.</return>
-        static bool Initialize(CefSettings^ cefSettings, bool shutdownOnProcessExit, bool performDependencyCheck)
+        static bool Initialize(CefSettings^ cefSettings, bool performDependencyCheck, IBrowserProcessHandler^ browserProcessHandler)
         {
             if (IsInitialized)
             {
@@ -188,7 +183,7 @@ namespace CefSharp
             FileThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_FILE));
 
             CefMainArgs main_args;
-            CefRefPtr<CefSharpApp> app(new CefSharpApp(cefSettings, OnContextInitialized));
+            CefRefPtr<CefSharpApp> app(new CefSharpApp(cefSettings, browserProcessHandler));
 
             auto success = CefInitialize(main_args, *(cefSettings->_cefSettings), app.get(), NULL);
 
@@ -203,20 +198,46 @@ namespace CefSharp
 
             _initialized = success;
 
-            if (_initialized && shutdownOnProcessExit)
-            {
-                AppDomain::CurrentDomain->ProcessExit += gcnew EventHandler(ParentProcessExitHandler);
-            }
-
             return success;
         }
 
-        /// <summary>Perform a single iteration of CEF message loop processing. This function is
-        /// used to integrate the CEF message loop into an existing application message
-        /// loop. Care must be taken to balance performance against excessive CPU usage.
+        /// <summary>
+        /// Run the CEF message loop. Use this function instead of an application-
+        /// provided message loop to get the best balance between performance and CPU
+        /// usage. This function should only be called on the main application thread and
+        /// only if Cef.Initialize() is called with a
+        /// CefSettings.MultiThreadedMessageLoop value of false. This function will
+        /// block until a quit message is received by the system.
+        /// </summary>
+        static void RunMessageLoop()
+        {
+            CefRunMessageLoop();
+        }
+
+        /// <summary>
+        /// Quit the CEF message loop that was started by calling Cef.RunMessageLoop().
         /// This function should only be called on the main application thread and only
-        /// if CefInitialize() is called with a CefSettings.multi_threaded_message_loop
-        /// value of false. This function will not block.</summary>
+        /// if Cef.RunMessageLoop() was used.
+        /// </summary>
+        static void QuitMessageLoop()
+        {
+            CefQuitMessageLoop();
+        }
+
+        /// <summary>
+        /// Perform a single iteration of CEF message loop processing.This function is
+        /// provided for cases where the CEF message loop must be integrated into an
+        /// existing application message loop. Use of this function is not recommended
+        /// for most users; use CefSettings.MultiThreadedMessageLoop if possible (the deault).
+        /// When using this function care must be taken to balance performance
+        /// against excessive CPU usage. It is recommended to enable the
+        /// CefSettings.ExternalMessagePump option when using
+        /// this function so that IBrowserProcessHandler.OnScheduleMessagePumpWork()
+        /// callbacks can facilitate the scheduling process. This function should only be
+        /// called on the main application thread and only if Cef.Initialize() is called
+        /// with a CefSettings.MultiThreadedMessageLoop value of false. This function
+        /// will not block.
+        /// </summary>
         static void DoMessageLoopWork()
         {
             CefDoMessageLoopWork();
@@ -346,14 +367,15 @@ namespace CefSharp
         /// <summary>
         /// Shuts down CefSharp and the underlying CEF infrastructure. This method is safe to call multiple times; it will only
         /// shut down CEF on the first call (all subsequent calls will be ignored).
-        /// This function should be called on the main application thread to shut down the CEF browser process before the application exits. 
+        /// This method should be called on the main application thread to shut down the CEF browser process before the application exits. 
+        /// If you are Using CefSharp.OffScreen then you must call this explicitly before your application exits or it will hang.
+        /// This method must be called on the same thread as Initialize. If you don't call Shutdown explicitly then CefSharp.Wpf and CefSharp.WinForms
+        /// versions will do their best to call Shutdown for you, if your application is having trouble closing then call thus explicitly.
         /// </summary>
         static void Shutdown()
         {
             if (IsInitialized)
             { 
-                OnContextInitialized = nullptr;
-                
                 msclr::lock l(_sync);
 
                 UIThreadTaskFactory = nullptr;
@@ -385,11 +407,6 @@ namespace CefSharp
         /// <summary>
         /// Async returns a list containing Plugin Information
         /// (Wrapper around CefVisitWebPluginInfo)
-        /// The Task will be cancelled and a TaskCanceledException throw
-        /// if the Task does not complete within 2000ms
-        /// Documentation for CefWebPluginInfoVisitor.Visit states
-        /// `This method may never be called if no plugins are found.`
-        /// hence the Task cancelled timeout
         /// </summary>
         /// <return>Returns List of <see cref="Plugin"/> structs.</return>
         static Task<List<Plugin>^>^ GetPlugins()
@@ -402,38 +419,11 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Add a plugin path (directory + file). This change may not take affect until after RefreshWebPlugins() is called.
-        /// </summary>
-        /// <param name="path">Path (directory + file).</param>
-        static void AddWebPluginPath(String^ path)
-        {
-            CefAddWebPluginPath(StringUtils::ToNative(path));
-        }
-
-        /// <summary>
-        /// Add a plugin directory. This change may not take affect until after CefRefreshWebPlugins() is called.
-        /// </summary>
-        /// <param name="directory">Directory.</param>
-        static void AddWebPluginDirectory(String^ directory)
-        {
-            CefAddWebPluginDirectory(StringUtils::ToNative(directory));
-        }
-
-        /// <summary>
         /// Cause the plugin list to refresh the next time it is accessed regardless of whether it has already been loaded.
         /// </summary>
         static void RefreshWebPlugins()
         {
             CefRefreshWebPlugins();
-        }
-
-        /// <summary>
-        /// Remove a plugin path (directory + file). This change may not take affect until after RefreshWebPlugins() is called. 
-        /// </summary>
-        /// <param name="path">Path (directory + file).</param>
-        static void RemoveWebPluginPath(String^ path)
-        {
-            CefRemoveWebPluginPath(StringUtils::ToNative(path));
         }
 
         /// <summary>
@@ -444,15 +434,6 @@ namespace CefSharp
         {
             CefUnregisterInternalWebPlugin(StringUtils::ToNative(path));
         }	
-
-        /// <summary>
-        /// Force a plugin to shutdown. 
-        /// </summary>
-        /// <param name="path">Path (directory + file).</param>
-        static void ForceWebPluginShutdown(String^ path)
-        {
-            CefForceWebPluginShutdown(StringUtils::ToNative(path));
-        }
 
         /// <summary>
         /// Call during process startup to enable High-DPI support on Windows 7 or newer.
@@ -477,6 +458,31 @@ namespace CefSharp
             CefGetGeolocation(callback);
 
             return callback->GetTask();
+        }
+
+        /// <summary>
+        /// Returns true if called on the specified CEF thread.
+        /// </summary>
+        /// <return>Returns true if called on the specified thread.</return>
+        static bool CurrentlyOnThread(CefThreadIds threadId)
+        {
+            return CefCurrentlyOn((CefThreadId)threadId);
+        }
+
+        /// <summary>
+        /// Gets the Global Request Context. Make sure to Dispose of this object when finished.
+        /// </summary>
+        /// <return>Returns the global request context or null.</return>
+        static IRequestContext^ GetGlobalRequestContext()
+        {
+            auto context = CefRequestContext::GetGlobalContext();
+
+            if (context.get())
+            {
+                return gcnew RequestContext(context);
+            }
+
+            return nullptr;
         }
     };
 }

@@ -48,6 +48,7 @@ namespace CefSharp.Example
                 { "/MultiBindingTest.html", Resources.MultiBindingTest },
                 { "/ScriptedMethodsTest.html", Resources.ScriptedMethodsTest },
                 { "/ResponseFilterTest.html", Resources.ResponseFilterTest },
+                { "/DraggableRegionTest.html", Resources.DraggableRegionTest }
             };
         }
 
@@ -167,6 +168,11 @@ namespace CefSharp.Example
         }
 
         void IResourceHandler.Cancel()
+        {
+            
+        }
+
+        void IDisposable.Dispose()
         {
             
         }

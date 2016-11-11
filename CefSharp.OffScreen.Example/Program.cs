@@ -6,8 +6,11 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CefSharp.Example;
+using CefSharp.Example.Handlers;
+using CefSharp.Internals;
 
 namespace CefSharp.OffScreen.Example
 {
@@ -22,7 +25,7 @@ namespace CefSharp.OffScreen.Example
             Console.WriteLine();
 
             // You need to replace this with your own call to Cef.Initialize();
-            CefExample.Init(true, multiThreadedMessageLoop:true);
+            CefExample.Init(true, multiThreadedMessageLoop:true, browserProcessHandler: new BrowserProcessHandler());
 
             MainAsync("cachePath1", 1.0);
             //Demo showing Zoom Level of 3.0
@@ -63,7 +66,18 @@ namespace CefSharp.OffScreen.Example
                 }
                 await LoadPageAsync(browser);
 
-                var preferences = requestContext.GetAllPreferences(true);
+                //Check preferences on the CEF UI Thread
+                await Cef.UIThreadTaskFactory.StartNew(delegate
+                {
+                    var preferences = requestContext.GetAllPreferences(true);
+
+                    //Check do not track status
+                    var doNotTrack = (bool)preferences["enable_do_not_track"];
+
+                    Debug.WriteLine("DoNotTrack:" + doNotTrack);
+                });
+
+                var onUi = Cef.CurrentlyOnThread(CefThreadIds.TID_UI);
 
                 // For Google.com pre-pupulate the search text box
                 await browser.EvaluateScriptAsync("document.getElementById('lst-ib').value = 'CefSharp Was Here!'");
@@ -91,6 +105,8 @@ namespace CefSharp.OffScreen.Example
 
         public static Task LoadPageAsync(IWebBrowser browser, string address = null)
         {
+            //If using .Net 4.6 then use TaskCreationOptions.RunContinuationsAsynchronously
+            //and switch to tcs.TrySetResult below - no need for the custom extension method
             var tcs = new TaskCompletionSource<bool>();
 
             EventHandler<LoadingStateChangedEventArgs> handler = null;
@@ -100,7 +116,9 @@ namespace CefSharp.OffScreen.Example
                 if (!args.IsLoading)
                 {
                     browser.LoadingStateChanged -= handler;
-                    tcs.TrySetResult(true);
+                    //This is required when using a standard TaskCompletionSource
+                    //Extension method found in the CefSharp.Internals namespace
+                    tcs.TrySetResultAsync(true);
                 }
             };
 

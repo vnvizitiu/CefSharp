@@ -7,6 +7,10 @@ using System.Threading.Tasks;
 
 namespace CefSharp
 {
+    /// <summary>
+    /// Interface used to represent the browser process aspects of a browser window.
+    /// They may be called on any thread in that process unless otherwise indicated in the comments. 
+    /// </summary>
     public interface IBrowserHost : IDisposable
     {
         /// <summary>
@@ -32,16 +36,52 @@ namespace CefSharp
         /// </summary>
         void CloseDevTools();
 
+        /// <summary>
+        /// Returns true if this browser currently has an associated DevTools browser.
+        /// Must be called on the CEF UI thread.
+        /// </summary>
+        bool HasDevTools { get; }
+
+        /// <summary>
+        /// Call this method when the user drags the mouse into the web view (before calling <see cref="DragTargetDragOver"/>/<see cref="DragTargetDragLeave"/>/<see cref="DragTargetDragDrop"/>).
+        /// </summary>
         void DragTargetDragEnter(IDragData dragData, MouseEvent mouseEvent, DragOperationsMask allowedOperations);
 
+        /// <summary>
+        /// Call this method each time the mouse is moved across the web view during a drag operation (after calling <see cref="DragTargetDragEnter"/> and before calling <see cref="DragTargetDragLeave"/>/<see cref="DragTargetDragDrop"/>). 
+        /// This method is only used when window rendering is disabled.
+        /// </summary>
         void DragTargetDragOver(MouseEvent mouseEvent, DragOperationsMask allowedOperations);
 
+        /// <summary>
+        /// Call this method when the user completes the drag operation by dropping the object onto the web view (after calling <see cref="DragTargetDragEnter"/>). 
+        /// The object being dropped is <see cref="IDragData"/>, given as an argument to the previous <see cref="DragTargetDragEnter"/> call. 
+        /// This method is only used when window rendering is disabled.
+        /// </summary>
         void DragTargetDragDrop(MouseEvent mouseEvent);
 
+        /// <summary>
+        /// Call this method when the drag operation started by a <see cref="IRenderWebBrowser.StartDragging"/> call has ended either in a drop or by being cancelled.
+        /// If the web view is both the drag source and the drag target then all DragTarget* methods should be called before DragSource* methods.
+        /// This method is only used when window rendering is disabled. 
+        /// </summary>
+        /// <param name="x">x mouse coordinate relative to the upper-left corner of the view.</param>
+        /// <param name="y">y mouse coordinate relative to the upper-left corner of the view.</param>
+        /// <param name="op">Drag Operations mask</param>
         void DragSourceEndedAt(int x, int y, DragOperationsMask op);
 
+        /// <summary>
+        /// Call this method when the user drags the mouse out of the web view (after calling <see cref="DragTargetDragEnter"/>).
+        /// This method is only used when window rendering is disabled.
+        /// </summary>
         void DragTargetDragLeave();
-
+        
+        /// <summary>
+        /// Call this method when the drag operation started by a <see cref="IRenderWebBrowser.StartDragging"/> call has completed.
+        /// This method may be called immediately without first calling DragSourceEndedAt to cancel a drag operation.
+        /// If the web view is both the drag source and the drag target then all DragTarget* methods should be called before DragSource* mthods.
+        /// This method is only used when window rendering is disabled. 
+        /// </summary>
         void DragSourceSystemDragEnded();
 
         /// <summary>
@@ -112,6 +152,15 @@ namespace CefSharp
         /// <returns>A task that represents the asynchronous print operation.
         /// The result is true on success or false on failure to generate the Pdf.</returns>
         Task<bool> PrintToPdfAsync(string path, PdfPrintSettings settings = null);
+
+        /// <summary>
+        /// Asynchronously prints the current browser contents to the Pdf file specified.
+        /// The caller is responsible for deleting the file when done.
+        /// </summary>
+        /// <param name="path">Output file location.</param>
+        /// <param name="settings">Print Settings, can be null</param>
+        /// <param name="callback">Callback executed when printing complete</param>
+        void PrintToPdf(string path, PdfPrintSettings settings, IPrintToPdfCallback callback);
 
         /// <summary>
         /// If a misspelled word is currently selected in an editable node calling this method will replace it with the specified word.
@@ -228,6 +277,22 @@ namespace CefSharp
         /// This method is only used when window rendering is disabled. 
         /// </summary>
         void WasResized();
+
+        /// <summary>
+        /// Retrieve a snapshot of current navigation entries as values sent to the
+        /// specified visitor. 
+        /// </summary>
+        /// <param name="visitor">visitor</param>
+        /// <param name="currentOnly">If true only the current navigation
+        /// entry will be sent, otherwise all navigation entries will be sent.</param>
+        void GetNavigationEntries(INavigationEntryVisitor visitor, bool currentOnly);
+
+        /// <summary>
+        /// Returns the current visible navigation entry for this browser. This method
+        /// can only be called on the CEF UI thread.
+        /// </summary>
+        /// <returns>the current navigation entry</returns>
+        NavigationEntry GetVisibleNavigationEntry();
 
         /// <summary>
         /// Gets/sets the maximum rate in frames per second (fps) that CefRenderHandler::

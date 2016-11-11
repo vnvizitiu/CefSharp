@@ -14,7 +14,7 @@ namespace CefSharp
 {
     namespace Internals
     {
-        public ref class CefBrowserHostWrapper : public IBrowserHost, public CefWrapper
+        private ref class CefBrowserHostWrapper : public IBrowserHost, public CefWrapper
         {
         private:
             MCefRefPtr<CefBrowserHost> _browserHost;
@@ -42,6 +42,7 @@ namespace CefSharp
             virtual void StartDownload(String^ url);
             virtual void Print();
             virtual Task<bool>^ PrintToPdfAsync(String^ path, PdfPrintSettings^ settings);
+            virtual void PrintToPdf(String^ path, PdfPrintSettings^ settings, IPrintToPdfCallback^ callback);
             virtual void SetZoomLevel(double zoomLevel);
             virtual Task<double>^ GetZoomLevelAsync();
             virtual IntPtr GetWindowHandle();
@@ -56,6 +57,15 @@ namespace CefSharp
         
             virtual void ShowDevTools(IWindowInfo^ windowInfo, int inspectElementAtX, int inspectElementAtY);
             virtual void CloseDevTools();
+            ///
+            // Returns true if this browser currently has an associated DevTools browser.
+            // Must be called on the browser process UI thread.
+            ///
+            /*--cef()--*/
+            virtual property bool HasDevTools
+            {
+                bool get();
+            }
 
             virtual void AddWordToDictionary(String^ word);
             virtual void ReplaceMisspelling(String^ word);
@@ -83,6 +93,10 @@ namespace CefSharp
             virtual void WasResized();
 
             virtual void WasHidden(bool hidden);
+
+            virtual void GetNavigationEntries(INavigationEntryVisitor^ visitor, bool currentOnly);
+
+            virtual NavigationEntry GetVisibleNavigationEntry();
 
             virtual property int WindowlessFrameRate
             {

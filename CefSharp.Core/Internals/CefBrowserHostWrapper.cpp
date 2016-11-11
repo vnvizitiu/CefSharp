@@ -12,6 +12,7 @@
 #include "CefTaskScheduler.h"
 #include "Cef.h"
 #include "RequestContext.h"
+#include "CefNavigationEntryVisitorAdapter.h"
 
 void CefBrowserHostWrapper::DragTargetDragEnter(IDragData^ dragData, MouseEvent^ mouseEvent, DragOperationsMask allowedOperations)
 {
@@ -73,6 +74,17 @@ void CefBrowserHostWrapper::Print()
 
 Task<bool>^ CefBrowserHostWrapper::PrintToPdfAsync(String^ path, PdfPrintSettings^ settings)
 {
+    ThrowIfDisposed();
+
+    auto printToPdfTask = gcnew TaskPrintToPdfCallback();
+    PrintToPdf(path, settings, printToPdfTask);
+    return printToPdfTask->Task;
+}
+
+void CefBrowserHostWrapper::PrintToPdf(String^ path, PdfPrintSettings^ settings, IPrintToPdfCallback^ callback)
+{
+    ThrowIfDisposed();
+
     CefPdfPrintSettings nativeSettings;
     if (settings != nullptr)
     {
@@ -91,9 +103,7 @@ Task<bool>^ CefBrowserHostWrapper::PrintToPdfAsync(String^ path, PdfPrintSetting
         nativeSettings.margin_type = static_cast<cef_pdf_print_margin_type_t>(settings->MarginType);
     }
 
-    auto printToPdfTask = gcnew TaskPrintToPdf();
-    _browserHost->PrintToPDF(StringUtils::ToNative(path), nativeSettings, new CefPdfPrintCallbackWrapper(printToPdfTask));
-    return printToPdfTask->Task;
+    _browserHost->PrintToPDF(StringUtils::ToNative(path), nativeSettings, new CefPdfPrintCallbackWrapper(callback));
 }
 
 void CefBrowserHostWrapper::SetZoomLevel(double zoomLevel)
@@ -109,8 +119,9 @@ Task<double>^ CefBrowserHostWrapper::GetZoomLevelAsync()
 
     if (CefCurrentlyOn(TID_UI))
     {
-        TaskCompletionSource<double>^ taskSource = gcnew TaskCompletionSource<double>();
-        taskSource->SetResult(GetZoomLevelOnUI());
+        auto taskSource = gcnew TaskCompletionSource<double>();
+
+        CefSharp::Internals::TaskExtensions::TrySetResultAsync<double>(taskSource, GetZoomLevelOnUI());
         return taskSource->Task;
     }
     return Cef::UIThreadTaskFactory->StartNew(gcnew Func<double>(this, &CefBrowserHostWrapper::GetZoomLevelOnUI));
@@ -158,6 +169,13 @@ void CefBrowserHostWrapper::CloseDevTools()
     _browserHost->CloseDevTools();
 }
 
+bool CefBrowserHostWrapper::HasDevTools::get()
+{
+    ThrowIfDisposed();
+
+    return _browserHost->HasDevTools();
+}
+
 void CefBrowserHostWrapper::AddWordToDictionary(String^ word)
 {
     ThrowIfDisposed();
@@ -202,6 +220,8 @@ void CefBrowserHostWrapper::SendFocusEvent(bool setFocus)
 
 void CefBrowserHostWrapper::SendKeyEvent(KeyEvent keyEvent)
 {
+    ThrowIfDisposed();
+
     CefKeyEvent nativeKeyEvent;
     nativeKeyEvent.focus_on_editable_field = keyEvent.FocusOnEditableField == 1;
     nativeKeyEvent.is_system_key = keyEvent.IsSystemKey == 1;
@@ -243,7 +263,10 @@ void CefBrowserHostWrapper::SendKeyEvent(int message, int wParam, int lParam)
 
 double CefBrowserHostWrapper::GetZoomLevelOnUI()
 {
-    ThrowIfDisposed();
+    if (_disposed)
+    {
+        return 0.0;
+    }
 
     CefTaskScheduler::EnsureOn(TID_UI, "CefBrowserHostWrapper::GetZoomLevel");
 
@@ -315,6 +338,39 @@ void CefBrowserHostWrapper::WasHidden(bool hidden)
     ThrowIfDisposed();
 
     _browserHost->WasHidden(hidden);
+}
+
+void CefBrowserHostWrapper::GetNavigationEntries(INavigationEntryVisitor^ visitor, bool currentOnly)
+{
+    ThrowIfDisposed();
+
+    auto navEntryVisitor = new CefNavigationEntryVisitorAdapter(visitor);
+
+    _browserHost->GetNavigationEntries(navEntryVisitor, currentOnly);
+}
+
+NavigationEntry CefBrowserHostWrapper::GetVisibleNavigationEntry()
+{
+    ThrowIfDisposed();
+
+    auto entry = _browserHost->GetVisibleNavigationEntry();
+
+    NavigationEntry navEntry;
+
+    //TODO: This code is duplicated in CefNavigationEntryVisitor
+    if (entry->IsValid())
+    {
+        auto time = entry->GetCompletionTime();
+        DateTime completionTime = CefTimeUtils::ConvertCefTimeToDateTime(time.GetDoubleT());
+        navEntry = NavigationEntry(true, completionTime, StringUtils::ToClr(entry->GetDisplayURL()), entry->GetHttpStatusCode(), StringUtils::ToClr(entry->GetOriginalURL()), StringUtils::ToClr(entry->GetTitle()), (TransitionType)entry->GetTransitionType(), StringUtils::ToClr(entry->GetURL()), entry->HasPostData(), true);
+    }
+    else
+    {
+        //Invalid nav entry
+        navEntry = NavigationEntry(true, DateTime::MinValue, nullptr, -1, nullptr, nullptr, (TransitionType)-1, nullptr, false, false);
+    }
+
+    return navEntry;
 }
 
 void CefBrowserHostWrapper::NotifyMoveOrResizeStarted()
