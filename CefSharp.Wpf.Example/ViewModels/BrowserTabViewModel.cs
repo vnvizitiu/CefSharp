@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -68,6 +68,27 @@ namespace CefSharp.Wpf.Example.ViewModels
         {
             get { return showSidebar; }
             set { Set(ref showSidebar, value); }
+        }
+
+        private bool showDownloadInfo;
+        public bool ShowDownloadInfo
+        {
+            get { return showDownloadInfo; }
+            set { Set(ref showDownloadInfo, value); }
+        }
+
+        private string lastDownloadAction;
+        public string LastDownloadAction
+        {
+            get { return lastDownloadAction; }
+            set { Set(ref lastDownloadAction, value); }
+        }
+
+        private DownloadItem downloadItem;
+        public DownloadItem DownloadItem
+        {
+            get { return downloadItem; }
+            set { Set(ref downloadItem, value); }
         }
 
         public ICommand GoCommand { get; private set; }
@@ -191,15 +212,9 @@ namespace CefSharp.Wpf.Example.ViewModels
 
         public void LoadCustomRequestExample()
         {
-            var frame = WebBrowser.GetMainFrame();
+            var postData = System.Text.Encoding.Default.GetBytes("test=123&data=456");
 
-            //Create a new request knowing we'd like to use PostData
-            var request = frame.CreateRequest(initializePostData:true);
-            request.Method = "POST";
-            request.Url = "custom://cefsharp/PostDataTest.html";
-            request.PostData.AddData("test=123&data=456");
-
-            frame.LoadRequest(request);
+            WebBrowser.LoadUrlWithPostData("https://cefsharp.com/PostDataTest.html", postData);
         }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -21,10 +21,15 @@ namespace CefSharp.ModelBinding
 
         private readonly IFieldNameConverter fieldNameConverter;
 
-        protected bool IgnoreErrors { get; private set; }
-
+        /// <summary>
+        /// List of property names to be ignored
+        /// </summary>
         public IEnumerable<string> BlackListedPropertyNames { get; set; }
 
+        /// <summary>
+        /// DefaultBinder constructor
+        /// </summary>
+        /// <param name="fieldNameConverter">used to convert field names to property names</param>
         public DefaultBinder(IFieldNameConverter fieldNameConverter)
         {
             if (fieldNameConverter == null)
@@ -33,7 +38,6 @@ namespace CefSharp.ModelBinding
             }
 
             this.fieldNameConverter = fieldNameConverter;
-            IgnoreErrors = true;
             BlackListedPropertyNames = new List<string>();
         }
 
@@ -42,7 +46,6 @@ namespace CefSharp.ModelBinding
         /// </summary>
         /// <param name="obj">object to be converted into a model</param>
         /// <param name="modelType">Model type to bind to</param>
-        /// <param name="blackList">Blacklisted binding property names</param>
         /// <returns>Bound model</returns>
         public virtual object Bind(object obj, Type modelType)
         {
@@ -51,8 +54,14 @@ namespace CefSharp.ModelBinding
                 return null;
             }
 
+            //If the object can be directly assigned to the modelType then return immediately. 
+            if(modelType.IsAssignableFrom(obj.GetType()))
+            {
+                return obj;
+            }
+
             Type genericType = null;
-            if (modelType.IsCollectionOrArray())
+            if (modelType.IsCollection() || modelType.IsArray() || modelType.IsEnumerable())
             {
                 //make sure it has a generic type
                 if (modelType.GetTypeInfo().IsGenericType)
@@ -67,13 +76,15 @@ namespace CefSharp.ModelBinding
 
                 if (genericType == null)
                 {
-                    throw new ArgumentException("When modelType is an enumerable it must specify the type.", "modelType");
+                    //If we don't have a generic type then just use object
+                    genericType = typeof(object);
                 }
             }
 
             var bindingContext = this.CreateBindingContext(obj, modelType, genericType);
+            var destinationType = bindingContext.DestinationType;
 
-            if (bindingContext.DestinationType.IsCollectionOrArray())
+            if (destinationType.IsCollection() || destinationType.IsArray() || destinationType.IsEnumerable())
             {
                 var model = (IList)bindingContext.Model;
                 var collection = obj as ICollection;
@@ -141,28 +152,17 @@ namespace CefSharp.ModelBinding
                 return;
             }
 
-            Type dictionaryType = typeof(Dictionary<string, object>);
-
-            //If the type is a dictionary and the PropertyType isn't then we'll bind.
-            if (obj.GetType() == dictionaryType && modelProperty.PropertyType != dictionaryType)
+            if (modelProperty.PropertyType.IsAssignableFrom(obj.GetType()))
             {
-                //We have a sub dictionary, attempt to bind it to the class
-                var model = Bind(obj, modelProperty.PropertyType);
-
-                modelProperty.SetValue(context.Model, model);
-            }
-            //If both types are collections then we'll bind
-            else if (obj.GetType().IsCollectionOrArray() && modelProperty.PropertyType.IsCollectionOrArray())
-            {
-                //We have a sub dictionary, attempt to bind it to the class
-                var model = Bind(obj, modelProperty.PropertyType);
-
-                modelProperty.SetValue(context.Model, model);
-            }
-            else
-            { 
                 //Simply set the property
                 modelProperty.SetValue(context.Model, obj);
+            }
+            else
+            {
+                //Cannot directly set the property attempt to bind
+                var model = Bind(obj, modelProperty.PropertyType);
+
+                modelProperty.SetValue(context.Model, model);
             }
         }
 
@@ -175,14 +175,14 @@ namespace CefSharp.ModelBinding
 
         protected virtual object CreateModel(Type modelType, Type genericType)
         {
-            if (modelType.IsCollectionOrArray())
+            if (modelType.IsCollection() || modelType.IsArray() || modelType.IsEnumerable())
             {
                 //else just make a list
                 var listType = typeof(List<>).MakeGenericType(genericType);
                 return Activator.CreateInstance(listType);
             }
 
-            return modelType.CreateInstance(true);
+            return Activator.CreateInstance(modelType, true);
         }
 
         protected virtual object GetValue(string propertyName, BindingContext context)

@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -481,9 +481,16 @@ namespace CefSharp.WinForms.Example
             if (control != null)
             {
                 const string html = "<html><head><title>Test</title></head><body><h1>Html Encoded in URL!</h1></body></html>";
-                var base64EncodedHtml = Convert.ToBase64String(Encoding.UTF8.GetBytes(html));
-                control.Browser.Load("data:text/html;base64," + base64EncodedHtml);
+                control.Browser.LoadHtml(html, false);
+            }
+        }
 
+        private void OpenHttpBinOrgToolStripMenuItemClick(object sender, EventArgs e)
+        {
+            var control = GetCurrentTabControl();
+            if (control != null)
+            {
+                control.Browser.Load("https://httpbin.org/");
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -11,6 +11,9 @@ using System.Collections.Generic;
 using CefSharp.Example;
 using CefSharp.Wpf.Example.Handlers;
 using CefSharp.ModelBinding;
+using CefSharp.Wpf.Example.ViewModels;
+using System.IO;
+using CefSharp.Example.ModelBinding;
 
 namespace CefSharp.Wpf.Example.Views
 {
@@ -25,14 +28,28 @@ namespace CefSharp.Wpf.Example.Views
 
             browser.RequestHandler = new RequestHandler();
             browser.RegisterJsObject("bound", new BoundObject(), BindingOptions.DefaultBinder);
-            browser.RegisterAsyncJsObject("boundAsync", new AsyncBoundObject());
+            var bindingOptions = new BindingOptions() 
+            {
+                Binder = BindingOptions.DefaultBinder.Binder,
+                MethodInterceptor = new MethodInterceptorLogger() // intercept .net methods calls from js and log it
+            };
+            browser.RegisterAsyncJsObject("boundAsync", new AsyncBoundObject(), bindingOptions);
             // Enable touch scrolling - once properly tested this will likely become the default
             //browser.IsManipulationEnabled = true;
 
+            browser.DisplayHandler = new DisplayHandler();
             browser.LifeSpanHandler = new LifespanHandler();
             browser.MenuHandler = new MenuHandler();
             browser.GeolocationHandler = new GeolocationHandler();
-            browser.DownloadHandler = new DownloadHandler();
+            var downloadHandler = new DownloadHandler();
+            downloadHandler.OnBeforeDownloadFired += OnBeforeDownloadFired;
+            downloadHandler.OnDownloadUpdatedFired += OnDownloadUpdatedFired;
+            browser.DownloadHandler = downloadHandler;
+
+            //Read an embedded bitmap into a memory stream then register it as a resource you can then load custom://cefsharp/images/beach.jpg
+            var beachImageStream = new MemoryStream();
+            CefSharp.Example.Properties.Resources.beach.Save(beachImageStream, System.Drawing.Imaging.ImageFormat.Jpeg);
+            browser.RegisterResourceHandler(CefExample.BaseUrl + "/images/beach.jpg", beachImageStream, ResourceHandler.GetMimeType(".jpg"));
             
             var dragHandler = new DragHandler();
             dragHandler.RegionsChanged += OnDragHandlerRegionsChanged;
@@ -83,6 +100,26 @@ namespace CefSharp.Wpf.Example.Views
             };
 
             CefExample.RegisterTestResources(browser);
+        }
+
+        private void OnBeforeDownloadFired(object sender, DownloadItem e)
+        {
+            this.UpdateDownloadAction("OnBeforeDownload", e);
+        }
+
+        private void OnDownloadUpdatedFired(object sender, DownloadItem e)
+        {
+            this.UpdateDownloadAction("OnDownloadUpdated", e);
+        }
+
+        private void UpdateDownloadAction(string downloadAction, DownloadItem downloadItem)
+        {
+            this.Dispatcher.InvokeAsync(() =>
+            {
+                var viewModel = (BrowserTabViewModel)this.DataContext;
+                viewModel.LastDownloadAction = downloadAction;
+                viewModel.DownloadItem = downloadItem;
+            });
         }
 
         private void OnBrowserMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

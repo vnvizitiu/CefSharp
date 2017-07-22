@@ -1,4 +1,4 @@
-﻿// Copyright © 2010-2016 The CefSharp Authors. All rights reserved.
+﻿// Copyright © 2010-2017 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
@@ -18,7 +18,7 @@ namespace CefSharp.OffScreen.Example
     {
         private const string TestUrl = "https://www.google.com/";
 
-        public static void Main(string[] args)
+        public static int Main(string[] args)
         {
             Console.WriteLine("This example application will load {0}, take a screenshot, and save it to your desktop.", TestUrl);
             Console.WriteLine("You may see a lot of Chromium debugging output, please wait...");
@@ -39,6 +39,9 @@ namespace CefSharp.OffScreen.Example
             // Clean up Chromium objects.  You need to call this in your application otherwise
             // you will get a crash when closing.
             Cef.Shutdown();
+
+            //Success
+            return 0;
         }
 
         private static async void MainAsync(string cachePath, double zoomLevel)

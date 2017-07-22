@@ -20,6 +20,10 @@
                 <MenuItem Header="Zooom Reset" Command="controls:CefSharpCommands.CustomCommand" CommandParameter="ZoomReset"/>
                 <MenuItem Header="_Exit" Command="controls:CefSharpCommands.Exit"/>
             </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="Toggle _Sidebar" Command="controls:CefSharpCommands.CustomCommand" CommandParameter="ToggleSidebar"/>
+                <MenuItem Header="Toggle _Download Info" Command="controls:CefSharpCommands.CustomCommand" CommandParameter="ToggleDownloadInfo"/>
+            </MenuItem>
             <MenuItem Header="_Tests">
                 <MenuItem Header="_Binding Test" Command="controls:CefSharpCommands.OpenTabCommand" CommandParameter="{Binding Source={x:Static ex:CefExample.BindingTestUrl}}"/>
                 <MenuItem Header="_List Plugins" Command="controls:CefSharpCommands.OpenTabCommand" CommandParameter="{Binding Source={x:Static ex:CefExample.PluginsTestUrl}}"/>
@@ -35,6 +39,7 @@
                 <MenuItem Header="_Adobe Flash Demo" Command="controls:CefSharpCommands.OpenTabCommand" CommandParameter="http://www.adobe.com/software/flash/about/"/>
                 <MenuItem Header="_Print Current tab to PDF" Command="controls:CefSharpCommands.PrintTabToPdfCommand" />
                 <MenuItem Header="_Load Custom Request" Command="controls:CefSharpCommands.CustomCommand" CommandParameter="CustomRequest" />
+                <MenuItem Header="_CDM/DRM Support Test" Command="controls:CefSharpCommands.OpenTabCommand" CommandParameter="{Binding Source={x:Static ex:CefExample.CdmSupportTestUrl}}"/>
             </MenuItem>
         </Menu>
         <controls:NonReloadingTabControl x:Name="TabControl"
